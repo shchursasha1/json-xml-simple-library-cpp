@@ -1,0 +1,4 @@
+D:/Programming 2 course/Project/JXSL_CPP/cmake-build-debug/CMakeFiles/jxsl_lib.dir
+D:/Programming 2 course/Project/JXSL_CPP/cmake-build-debug/CMakeFiles/JXSL_CPP.dir
+D:/Programming 2 course/Project/JXSL_CPP/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/Programming 2 course/Project/JXSL_CPP/cmake-build-debug/CMakeFiles/rebuild_cache.dir

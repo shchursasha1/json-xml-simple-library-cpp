@@ -1,0 +1,5 @@
+add json key3 value3
+add xml key2 value2
+edit json key1 updated_value1
+delete xml key2
+read json key1
