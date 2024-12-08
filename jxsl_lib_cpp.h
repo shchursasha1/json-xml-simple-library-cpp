@@ -1,44 +1,48 @@
-// JSON/XML Simple Library (JXSL). Header file for class that contains main functions to operate with JSON/XML files. Created by Oleksandr Shchur.
+// JSON/XML Simple Library (JXSL). Header file for class that contains main functions to operate with JSON/XML files.
 
-#ifndef JXSL_H
-#define JXSL_H
+#ifndef JXSL_LIB_CPP_H
+#define JXSL_LIB_CPP_H
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include <iostream>
 
 class JXSL {
+public:
+    explicit JXSL(const std::string& filename);
+
+    // file operations
+    bool createFile(const std::string& format);
+    void flushToFile(); // rewrite file with all changes
+
+    // core functionalities
+    bool findKeys(std::vector<std::string>& keys) const;
+    bool iterateKeys() const;
+    bool readData(const std::string& key, std::string& value) const;
+    bool addData(const std::string& key, const std::string& value);
+    bool editData(const std::string& key, const std::string& newValue);
+    bool deleteData(const std::string& key);
+    void displayData() const;
+
 private:
     std::string filename;
-    bool is_json;
+    bool isJson; // determining the file type
+    std::unordered_map<std::string, std::string> data; // saving a key-value
+    int pendingChanges; // change counter for deferred data recording
+    // internal file utilities
+    std::string readFile() const;
+    void writeFile(const std::string& content) const;
 
-    // Helper functions
-    bool open_file(const std::string& mode, std::fstream& file) const;
-    std::string read_file() const;
-    void write_file(const std::string& content) const;
+    // parsing and serialization
+    void parseJson(const std::string& content);
+    void parseXml(const std::string& content);
+    std::string toJson() const; // convert data to JSON
+    std::string toXml() const; // convert data to XML
 
-    std::string to_json() const;
-    std::string to_xml() const;
-    void parse_json(const std::string& content);
-    void parse_xml(const std::string& content);
-
-    std::unordered_map<std::string, std::string> data;
-
-public:
-    JXSL(const std::string& filename);
-
-    // Core functionalities
-    bool create_file(const std::string& format);
-    bool find_keys(std::vector<std::string>& keys) const;
-    bool iterate_keys() const;
-    bool read_data(const std::string& key, std::string& value) const;
-    bool add_data(const std::string& key, const std::string& value);
-    bool edit_data(const std::string& key, const std::string& new_value);
-    bool delete_data(const std::string& key);
-
-    // Utility
-    void display_data() const;
+    // helper functions
+    static void trimQuotes(std::string& str); // trim redundant quotes
+    static std::string stripXmlTags(const std::string& line, const std::string& key); // extract data between tags
 };
 
-#endif
+#endif // JXSL_LIB_CPP_H
