@@ -1,0 +1,4 @@
+Added key 'key1' with value 'value1' to JSON.
+Added key 'key2' with value 'value2' to XML.
+Failed to edit key 'key1' in JSON.
+Deleted key 'key2' from XML.

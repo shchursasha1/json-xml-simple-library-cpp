@@ -1,0 +1,3 @@
+D:/Programming 2 course/Project/JXSL_C/cmake-build-debug/CMakeFiles/JXSL_C.dir
+D:/Programming 2 course/Project/JXSL_C/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/Programming 2 course/Project/JXSL_C/cmake-build-debug/CMakeFiles/rebuild_cache.dir
