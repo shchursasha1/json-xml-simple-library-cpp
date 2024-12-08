@@ -1,83 +1,94 @@
-// JSON/XML Simple Library (JXSL). Class that contains main functions to operate with JSON/XML files. Created by Oleksandr Shchur.
-
+// JSON/XML Simple Library (JXSL). Class that contains main functions to operate with JSON/XML files with deffered recording optimization.
 #include "jxsl_lib_cpp.h"
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <algorithm>
 
-// Constructor
-JXSL::JXSL(const std::string& filename) : filename(filename) {
-    is_json = filename.find(".json") != std::string::npos;
-    std::string content = read_file();
-    if (is_json) {
-        parse_json(content);
+constexpr int FLUSH_THRESHOLD = 10;
+
+JXSL::JXSL(const std::string& filename)
+    : filename(filename), isJson(filename.find(".json") != std::string::npos), pendingChanges(0) {
+    const std::string content = readFile();
+    if (isJson) {
+        parseJson(content);
     } else {
-        parse_xml(content);
+        parseXml(content);
     }
 }
 
-// File operations
-bool JXSL::open_file(const std::string& mode, std::fstream& file) const {
-    file.open(filename, mode == "read" ? std::ios::in : std::ios::out | std::ios::in);
+// deferred data recording
+void JXSL::flushToFile() {
+    if (pendingChanges == 0) return; // if there is no changes - do nothing
+    std::cout << "Flushing changes to file...\n";
+
+    const std::string content = isJson ? toJson() : toXml();
+    writeFile(content);
+    pendingChanges = 0; // restore change counter
+}
+
+// file operations
+bool JXSL::createFile(const std::string& format) {
+    std::ofstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Error opening file: " << filename << "\n";
+        std::cerr << "Error: Unable to create file: " << filename << "\n";
         return false;
     }
-    return true;
-}
-
-std::string JXSL::read_file() const {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        return "";
-    }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
-void JXSL::write_file(const std::string& content) const {
-    std::ofstream file(filename, std::ios::trunc);
-    if (!file.is_open()) {
-        std::cerr << "Error writing file: " << filename << "\n";
-        return;
-    }
-    file << content;
-}
-
-// Core functionalities
-bool JXSL::create_file(const std::string& format) {
-    std::ofstream file(filename);
-    if (!file.is_open()) return false;
 
     if (format == "JSON") {
         file << "{}";
     } else if (format == "XML") {
         file << "<root></root>";
     } else {
-        std::cerr << "Unsupported format: " << format << "\n";
+        std::cerr << "Error: Unsupported file format: " << format << "\n";
         return false;
     }
-    file.close();
     return true;
 }
 
-bool JXSL::find_keys(std::vector<std::string>& keys) const {
-    for (const auto& [key, value] : data) {
+std::string JXSL::readFile() const {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to open file: " << filename << "\n";
+        return {};
+    }
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+void JXSL::writeFile(const std::string& content) const {
+    std::ofstream file(filename, std::ios::trunc);
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to write to file: " << filename << "\n";
+        return;
+    }
+    file << content;
+}
+
+// Core functionalities
+bool JXSL::findKeys(std::vector<std::string>& keys) const {
+    keys.reserve(data.size());
+    for (const auto& [key, _] : data) {
         keys.push_back(key);
     }
     return !keys.empty();
 }
 
-bool JXSL::iterate_keys() const {
+bool JXSL::iterateKeys() const {
+    if (data.empty()) {
+        std::cout << "No keys available.\n";
+        return false;
+    }
     for (const auto& [key, _] : data) {
         std::cout << "Key: " << key << "\n";
     }
-    return !data.empty();
+    return true;
 }
 
-bool JXSL::read_data(const std::string& key, std::string& value) const {
-    auto it = data.find(key);
+bool JXSL::readData(const std::string& key, std::string& value) const {
+    const auto it = data.find(key);
     if (it != data.end()) {
         value = it->second;
         return true;
@@ -85,70 +96,94 @@ bool JXSL::read_data(const std::string& key, std::string& value) const {
     return false;
 }
 
-bool JXSL::add_data(const std::string& key, const std::string& value) {
-    if (data.find(key) != data.end()) return false;
+bool JXSL::addData(const std::string& key, const std::string& value) {
+    if (data.find(key) != data.end()) {
+        std::cerr << "Error: Key already exists: " << key << "\n";
+        return false;
+    }
+
     data[key] = value;
-    write_file(is_json ? to_json() : to_xml());
+    pendingChanges++;
+
+    if (pendingChanges >= FLUSH_THRESHOLD) {
+        flushToFile();
+    }
     return true;
 }
 
-bool JXSL::edit_data(const std::string& key, const std::string& new_value) {
+bool JXSL::editData(const std::string& key, const std::string& newValue) {
     auto it = data.find(key);
-    if (it == data.end()) return false;
-    data[key] = new_value;
-    write_file(is_json ? to_json() : to_xml());
+    if (it == data.end()) {
+        std::cerr << "Error: Key not found: " << key << "\n";
+        return false;
+    }
+
+    it->second = newValue;
+    pendingChanges++;
+
+    if (pendingChanges >= FLUSH_THRESHOLD) {
+        flushToFile();
+    }
     return true;
 }
 
-bool JXSL::delete_data(const std::string& key) {
-    if (data.erase(key) == 0) return false;
-    write_file(is_json ? to_json() : to_xml());
+bool JXSL::deleteData(const std::string& key) {
+    if (data.erase(key) == 0) {
+        std::cerr << "Error: Key not found: " << key << "\n";
+        return false;
+    }
+
+    pendingChanges++;
+
+    if (pendingChanges >= FLUSH_THRESHOLD) {
+        flushToFile();
+    }
     return true;
 }
 
 // JSON/XML Parsing and Conversion
-void JXSL::parse_json(const std::string& content) {
+void JXSL::parseJson(const std::string& content) {
     data.clear();
-    size_t start = content.find('{');
-    size_t end = content.find('}');
+    const size_t start = content.find('{');
+    const size_t end = content.find('}');
     if (start == std::string::npos || end == std::string::npos) return;
 
     std::string body = content.substr(start + 1, end - start - 1);
-    std::stringstream ss(body);
+    std::istringstream ss(body);
     std::string line;
     while (std::getline(ss, line, ',')) {
-        size_t colon = line.find(':');
+        const size_t colon = line.find(':');
         if (colon != std::string::npos) {
             std::string key = line.substr(0, colon);
             std::string value = line.substr(colon + 1);
-            key.erase(std::remove(key.begin(), key.end(), '"'), key.end());
-            value.erase(std::remove(value.begin(), value.end(), '"'), value.end());
+            trimQuotes(key);
+            trimQuotes(value);
             data[key] = value;
         }
     }
 }
 
-void JXSL::parse_xml(const std::string& content) {
+void JXSL::parseXml(const std::string& content) {
     data.clear();
-    size_t start = content.find("<root>");
-    size_t end = content.find("</root>");
+    const size_t start = content.find("<root>");
+    const size_t end = content.find("</root>");
     if (start == std::string::npos || end == std::string::npos) return;
 
     std::string body = content.substr(start + 6, end - start - 6);
-    std::stringstream ss(body);
+    std::istringstream ss(body);
     std::string line;
     while (std::getline(ss, line, '>')) {
-        size_t close_tag = line.find('<');
-        if (close_tag != std::string::npos) {
-            std::string key = line.substr(0, close_tag);
-            std::string value = line.substr(close_tag + 1);
+        const size_t closeTag = line.find('<');
+        if (closeTag != std::string::npos) {
+            std::string key = line.substr(0, closeTag);
+            std::string value = stripXmlTags(line, key);
             data[key] = value;
         }
     }
 }
 
-std::string JXSL::to_json() const {
-    std::stringstream ss;
+std::string JXSL::toJson() const {
+    std::ostringstream ss;
     ss << "{\n";
     for (auto it = data.begin(); it != data.end(); ++it) {
         ss << "    \"" << it->first << "\": \"" << it->second << "\"";
@@ -159,8 +194,8 @@ std::string JXSL::to_json() const {
     return ss.str();
 }
 
-std::string JXSL::to_xml() const {
-    std::stringstream ss;
+std::string JXSL::toXml() const {
+    std::ostringstream ss;
     ss << "<root>\n";
     for (const auto& [key, value] : data) {
         ss << "    <" << key << ">" << value << "</" << key << ">\n";
@@ -170,6 +205,17 @@ std::string JXSL::to_xml() const {
 }
 
 // Utility
-void JXSL::display_data() const {
-    std::cout << (is_json ? to_json() : to_xml()) << "\n";
+void JXSL::trimQuotes(std::string& str) {
+    str.erase(remove(str.begin(), str.end(), '"'), str.end());
+    str.erase(0, str.find_first_not_of(" \t\n"));
+    str.erase(str.find_last_not_of(" \t\n") + 1);
 }
+
+std::string JXSL::stripXmlTags(const std::string& line, const std::string& key) {
+    return line.substr(key.length() + 1);
+}
+
+void JXSL::displayData() const {
+    std::cout << (isJson ? toJson() : toXml()) << "\n";
+}
+
