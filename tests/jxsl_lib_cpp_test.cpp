@@ -1,37 +1,42 @@
-#include "D:/Programming 2 course/Project/JXSL_CPP/jxsl_lib_cpp.h"
+#include "jxsl_lib_cpp.h"
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sstream>
 
-void run_tests_console();
-void run_tests_file(const std::string& filename);
-void log_to_file(const std::string& log_file, const std::string& message);
+// Function declarations
+void runTestsConsole();
+void runTestsFile(const std::string& testFilename);
+void logMessage(const std::string& logFilename, const std::string& message);
 
-int run() {
+int main() {
     int mode;
+
+    // Display test mode options
     std::cout << "Select test mode:\n";
     std::cout << "1 - Input from console\n";
     std::cout << "2 - Input from test file\n";
     std::cout << "Enter choice: ";
     std::cin >> mode;
 
+    // Process user choice
     if (mode == 1) {
-        run_tests_console();
+        runTestsConsole();
     } else if (mode == 2) {
-        std::string filename;
+        std::string testFilename;
         std::cout << "Enter the test file name: ";
-        std::cin >> filename;
-        run_tests_file(filename);
+        std::cin >> testFilename;
+        runTestsFile(testFilename);
     } else {
-        std::cout << "Invalid choice. Exiting.\n";
+        std::cerr << "Invalid choice. Exiting.\n";
         return 1;
     }
 
     return 0;
 }
 
-// Test functionality using console input
-void run_tests_console() {
+// Console-based testing
+void runTestsConsole() {
     std::string filename;
     std::cout << "Enter the filename to test (JSON or XML): ";
     std::cin >> filename;
@@ -47,130 +52,132 @@ void run_tests_console() {
         std::cout << "5 - Display all data\n";
         std::cout << "6 - Exit\n";
         std::cout << "Enter choice: ";
+
         int choice;
         std::cin >> choice;
 
         std::string key, value;
         switch (choice) {
-            case 1:  // Add data
+            case 1: // Add data
                 std::cout << "Enter key: ";
                 std::cin >> key;
                 std::cout << "Enter value: ";
                 std::cin >> value;
-                if (handler.add_data(key, value)) {
+                if (handler.addData(key, value)) {
                     std::cout << "Data added successfully.\n";
                 } else {
-                    std::cout << "Failed to add data. Key may already exist.\n";
+                    std::cerr << "Error: Key already exists.\n";
                 }
                 break;
 
-            case 2:  // Edit data
+            case 2: // Edit data
                 std::cout << "Enter key to edit: ";
                 std::cin >> key;
                 std::cout << "Enter new value: ";
                 std::cin >> value;
-                if (handler.edit_data(key, value)) {
+                if (handler.editData(key, value)) {
                     std::cout << "Data edited successfully.\n";
                 } else {
-                    std::cout << "Failed to edit data. Key not found.\n";
+                    std::cerr << "Error: Key not found.\n";
                 }
                 break;
 
-            case 3:  // Delete data
+            case 3: // Delete data
                 std::cout << "Enter key to delete: ";
                 std::cin >> key;
-                if (handler.delete_data(key)) {
+                if (handler.deleteData(key)) {
                     std::cout << "Data deleted successfully.\n";
                 } else {
-                    std::cout << "Failed to delete data. Key not found.\n";
+                    std::cerr << "Error: Key not found.\n";
                 }
                 break;
 
-            case 4:  // Read data
+            case 4: // Read data
                 std::cout << "Enter key to read: ";
                 std::cin >> key;
-                if (handler.read_data(key, value)) {
+                if (handler.readData(key, value)) {
                     std::cout << "Value: " << value << "\n";
                 } else {
-                    std::cout << "Key not found.\n";
+                    std::cerr << "Error: Key not found.\n";
                 }
                 break;
 
-            case 5:  // Display all data
-                handler.display_data();
+            case 5: // Display all data
+                handler.displayData();
                 break;
 
-            case 6:  // Exit
+            case 6: // Exit
                 std::cout << "Exiting console tests.\n";
                 return;
 
             default:
-                std::cout << "Invalid choice.\n";
+                std::cerr << "Invalid choice. Try again.\n";
         }
     }
 }
 
-// Test functionality using a test file
-void run_tests_file(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open test file " << filename << ".\n";
+// File-based testing
+void runTestsFile(const std::string& testFilename) {
+    std::ifstream testFile(testFilename);
+    if (!testFile.is_open()) {
+        std::cerr << "Error: Could not open test file: " << testFilename << "\n";
         return;
     }
 
-    const std::string log_file = "test_results.log";
-    std::ofstream log(log_file, std::ios::trunc);
-    if (!log.is_open()) {
-        std::cerr << "Error: Could not open log file " << log_file << ".\n";
+    const std::string logFilename = "test_results.log";
+    std::ofstream logFile(logFilename, std::ios::trunc);
+    if (!logFile.is_open()) {
+        std::cerr << "Error: Could not create log file: " << logFilename << "\n";
         return;
     }
 
-    std::string operation, filetype, key, value;
-    while (file >> operation >> filetype >> key >> value) {
-        std::string handler_file = (filetype == "json") ? "test.json" : "test.xml";
-        JXSL handler(handler_file);
+    std::string operation, fileType, key, value;
+    while (testFile >> operation >> fileType >> key >> value) {
+        std::string handlerFilename = (fileType == "json") ? "test.json" : "test.xml";
+        JXSL handler(handlerFilename);
 
+        std::ostringstream logMessageStream;
         if (operation == "add") {
-            if (handler.add_data(key, value)) {
-                log_to_file(log_file, "Added key '" + key + "' with value '" + value + "' to " + filetype + ".");
+            if (handler.addData(key, value)) {
+                logMessageStream << "Added key '" << key << "' with value '" << value << "' to " << fileType << ".";
             } else {
-                log_to_file(log_file, "Failed to add key '" + key + "' to " + filetype + ".");
+                logMessageStream << "Failed to add key '" << key << "' to " << fileType << ".";
             }
         } else if (operation == "edit") {
-            if (handler.edit_data(key, value)) {
-                log_to_file(log_file, "Edited key '" + key + "' to value '" + value + "' in " + filetype + ".");
+            if (handler.editData(key, value)) {
+                logMessageStream << "Edited key '" << key << "' to value '" << value << "' in " << fileType << ".";
             } else {
-                log_to_file(log_file, "Failed to edit key '" + key + "' in " + filetype + ".");
+                logMessageStream << "Failed to edit key '" << key << "' in " << fileType << ".";
             }
         } else if (operation == "delete") {
-            if (handler.delete_data(key)) {
-                log_to_file(log_file, "Deleted key '" + key + "' from " + filetype + ".");
+            if (handler.deleteData(key)) {
+                logMessageStream << "Deleted key '" << key << "' from " << fileType << ".";
             } else {
-                log_to_file(log_file, "Failed to delete key '" + key + "' in " + filetype + ".");
+                logMessageStream << "Failed to delete key '" << key << "' in " << fileType << ".";
             }
         } else if (operation == "read") {
-            if (handler.read_data(key, value)) {
-                log_to_file(log_file, "Read key '" + key + "' in " + filetype + ": Value = '" + value + "'.");
+            if (handler.readData(key, value)) {
+                logMessageStream << "Read key '" << key << "' in " << fileType << ": Value = '" << value << "'.";
             } else {
-                log_to_file(log_file, "Failed to read key '" + key + "' in " + filetype + ".");
+                logMessageStream << "Failed to read key '" << key << "' in " << fileType << ".";
             }
         } else {
-            log_to_file(log_file, "Unsupported operation '" + operation + "'.");
+            logMessageStream << "Unsupported operation: '" << operation << "'.";
         }
+        logMessage(logFilename, logMessageStream.str());
     }
 
-    file.close();
-    log.close();
-    std::cout << "Test file processed. Results logged to " << log_file << ".\n";
+    testFile.close();
+    logFile.close();
+    std::cout << "Test file processed. Results logged to " << logFilename << ".\n";
 }
 
 // Log messages to a log file
-void log_to_file(const std::string& log_file, const std::string& message) {
-    std::ofstream log(log_file, std::ios::app);
-    if (!log.is_open()) {
-        std::cerr << "Error: Could not write to log file " << log_file << ".\n";
+void logMessage(const std::string& logFilename, const std::string& message) {
+    std::ofstream logFile(logFilename, std::ios::app);
+    if (!logFile.is_open()) {
+        std::cerr << "Error: Could not write to log file: " << logFilename << "\n";
         return;
     }
-    log << message << "\n";
-    log.close();
+    logFile << message << "\n";
 }
